@@ -23,8 +23,9 @@
 		private $conn_dbname;
 		public $error_code;     // last error
 		public $rows;           // array with assoc arrays containing rows from the table
+		public $dict;           // assoc array to match table columns to JSON keys (e.g. "EDT" => "set")
 
-		public function __construct($_host, $_usrname, $_passwd, $_db) {
+		public function __construct(string $_host, string $_usrname, string $_passwd, string $_db) {
 			$this->conn_host     = $_host;
 			$this->conn_username = $_usrname;
 			$this->conn_password = $_passwd;
@@ -34,6 +35,7 @@
 			$this->result        = null;
 			$this->fields        = array();
 			$this->rows          = array();
+			$this->dict          = array();
 		}
 
 		public function __destruct() {
@@ -66,12 +68,20 @@
 			return $this->error_code === DBC_CONN_SUCCESS ? true : false;
 		}
 
-		public function SetFields($_fields = array()) {
+		public function SetFields($_fields = array(), $_dict = array()) { // sets fields in table to search and fields assoc array
 			if (empty($_fields)) {
 				$this->error_code = DBC_ERR_NOFIELDS; // no fields to set
 				return false;
 			}
 			$this->fields = $_fields; /* TODO: implement some array checks and sanitizing */
+
+			if (empty($_dict)) { // table columns and JSON keys match (e.g. "EDT" => "EDT")
+				foreach($this->fields as $field) $this->dict[$field] = $field;
+			}
+			else {
+				$this->dict = $_dict;
+			}
+
 			return true;
 		}
 
@@ -87,19 +97,18 @@
 
 			$Query = "SELECT ";
 			$flds = $this->fields; // to keep the original fields safe
-			
 			foreach($flds as &$f) $f = "`$table`.`$f`";
-			$Query = $Query.join(", ", $flds)." FROM `$table` WHERE `$table`.`{$this->fields[$field_index]}` LIKE '$keyword' LIMIT 10;";
-			echo "Got query:<br>\n".$Query;
+			$Query = $Query.join(", ", $flds)." FROM `$table` WHERE `$table`.`{$this->fields[$field_index]}` LIKE '$keyword';";
 
 			$this->result = $this->handle->query($Query);
 			$this->rows = array();
 			while($row = $this->result->fetch_assoc()) {
 				$unit = array();
-				foreach($this->fields as $field) $unit[$field] = $row[$field];
+				foreach($this->fields as $field) $unit[$this->dict[$field]] = $row[$field];
 				$this->rows[] = $unit;
 			}
 
+			return $this->result->num_rows;
 		}
 
 	}
