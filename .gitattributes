@@ -1,0 +1,2 @@
+# suppess incorrect language detection for PHP files with HTML
+**/*.php linguist-language=PHP
